@@ -1,4 +1,6 @@
-
+/*
+	localDb v0.4 - jQuery localStorage plugin
+*/
 (function ($) {
 	$.extend({
 
