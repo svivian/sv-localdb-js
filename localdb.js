@@ -7,7 +7,7 @@
 		localDb: function (dbAjaxPath, dbVersion) {
 
 			// the data from localStorage as an object
-			var localDb = null;
+			var localDb = {};
 
 			// global localStorage object for older browsers
 			if ( !localStorage )
@@ -24,12 +24,14 @@
 				}
 				catch (e) {
 					// bad response from server
-					console.log('Server response was not JSON');
+					$.error('Server response was not JSON');
 					return false;
 				}
 
+				// save the parsed version of the JSON to avoid doing it again later
+				localDb[tableKey] = db;
+
 				localStorage[tableKey] = response;
-				// TODO: do something with `db` object?
 				updateTableVersion( tableKey );
 			}
 
@@ -47,13 +49,15 @@
 				@callback:		function to run when loaded
 			*/
 			function checkLoaded (reqTables, callback) {
-				console.log('Checking if loaded...');
 				var loaded = true;
 				for ( var i in reqTables ) {
 					var key = reqTables[i];
 					// TODO: check table version
-					if ( !localStorage[key] )
+					var json = localStorage[key];
+					if ( !json )
 						loaded = false;
+					else if ( !localDb[key] )
+						localDb[key] = JSON.parse(json);
 				}
 
 				if ( loaded )
@@ -98,10 +102,9 @@
 								url: dbAjaxPath + key,
 								success: function( response ) {
 									saveResponse( response, key );
-									console.log('Fetched update from server');
 								},
 								error: function() {
-									console.log('Error fetching data from server');
+									$.error('Error fetching data from server');
 								}
 							});
 						}
@@ -111,7 +114,7 @@
 				},
 
 				table: function (tableKey) {
-					return localStorage[tableKey];
+					return localDb[tableKey];
 				}
 
 			}; // end public return
