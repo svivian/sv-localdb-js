@@ -15,6 +15,15 @@
 			if ( !localStorage )
 				localStorage = {};
 
+			/* Sets the version number of the table.
+				@tableKey:	the table
+			*/
+			function updateTableVersion (tableKey) {
+				var obj = JSON.parse(localStorage.versions);
+				obj[tableKey] = dbVersion;
+				localStorage.versions = JSON.stringify(obj);
+			}
+
 			/* Check response from server and save to localStorage
 				@response:	the JSON output
 				@tableKey:	table in which to save the data
@@ -37,13 +46,19 @@
 				updateTableVersion( tableKey );
 			}
 
-			/* Sets the version number of the table.
-				@tableKey:	the table
+			/* Gets the data via AJAX. Wrapped in a function to close over variables.
+				@tableKey:	table in which to save the data
 			*/
-			function updateTableVersion (tableKey) {
-				var obj = JSON.parse(localStorage.versions);
-				obj[tableKey] = dbVersion;
-				localStorage.versions = JSON.stringify(obj);
+			function fetchData (tableKey) {
+				$.ajax({
+					url: dbAjaxPath + tableKey,
+					success: function( response ) {
+						saveResponse( response, tableKey );
+					},
+					error: function() {
+						$.error('Error fetching data from server');
+					}
+				});
 			}
 
 			/* Check if all tables are loaded yet and runs callback when they are.
@@ -75,8 +90,6 @@
 					@callback:		function to run when loaded
 				*/
 				load: function (reqTables, callback) {
-					// whether we will fetch data via AJAX
-					var fetchData = false;
 					// list of tables we need to load via AJAX
 					var loadTables = [];
 
@@ -97,19 +110,8 @@
 						loadTables = reqTables;
 					}
 
-					if ( loadTables.length > 0 ) {
-						for ( var i in loadTables ) {
-							var key = loadTables[i];
-							$.ajax({
-								url: dbAjaxPath + key,
-								success: function( response ) {
-									saveResponse( response, key );
-								},
-								error: function() {
-									$.error('Error fetching data from server');
-								}
-							});
-						}
+					for ( var i in loadTables ) {
+						fetchData(loadTables[i]);
 					}
 
 					checkLoaded( reqTables, callback );
