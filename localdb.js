@@ -12,7 +12,7 @@
 			var localDb = {};
 
 			// global localStorage object for older browsers
-			if ( !localStorage )
+			if (!localStorage)
 				localStorage = {};
 
 			/* Sets the version number of the table.
@@ -43,7 +43,8 @@
 				localDb[tableKey] = db;
 
 				localStorage[tableKey] = response;
-				updateTableVersion( tableKey );
+				updateTableVersion(tableKey);
+				console.log('Loaded '+tableKey);
 			}
 
 			/* Gets the data via AJAX. Wrapped in a function to close over variables.
@@ -52,10 +53,10 @@
 			function fetchData (tableKey) {
 				$.ajax({
 					url: dbAjaxPath + tableKey,
-					success: function( response ) {
-						saveResponse( response, tableKey );
+					success: function (response) {
+						saveResponse(response, tableKey);
 					},
-					error: function() {
+					error: function () {
 						$.error('Error fetching data from server');
 					}
 				});
@@ -67,20 +68,20 @@
 			*/
 			function checkLoaded (reqTables, callback) {
 				var loaded = true;
-				for ( var i in reqTables ) {
+				for (var i in reqTables) {
 					var key = reqTables[i];
 					// TODO: check table version
 					var json = localStorage[key];
-					if ( !json )
+					if (!json)
 						loaded = false;
-					else if ( !localDb[key] )
+					else if (!localDb[key])
 						localDb[key] = JSON.parse(json);
 				}
 
-				if ( loaded )
-					setTimeout( callback, 10 );
+				if (loaded)
+					setTimeout(callback, 10);
 				else
-					setTimeout( function() { checkLoaded( reqTables, callback ) }, 1000 );
+					setTimeout(function () { checkLoaded(reqTables, callback) }, 800);
 			}
 
 			return {
@@ -93,14 +94,14 @@
 					// list of tables we need to load via AJAX
 					var loadTables = [];
 
-					if ( localStorage.versions ) {
+					if (localStorage.versions) {
 						// check if we need to refresh the data or not
-						var tableVersions = JSON.parse( localStorage.versions );
+						var tableVersions = JSON.parse(localStorage.versions);
 
-						for ( var i in reqTables ) {
+						for (var i in reqTables) {
 							var key = reqTables[i];
 							// table doesn't exist yet or outdated version
-							if ( !localStorage[key] || tableVersions[key] != dbVersion )
+							if (!localStorage[key] || tableVersions[key] != dbVersion)
 								loadTables.push(key);
 						}
 					}
@@ -110,11 +111,11 @@
 						loadTables = reqTables;
 					}
 
-					for ( var i in loadTables ) {
+					for (var i in loadTables) {
 						fetchData(loadTables[i]);
 					}
 
-					checkLoaded( reqTables, callback );
+					checkLoaded(reqTables, callback);
 				},
 
 				table: function (tableKey) {
