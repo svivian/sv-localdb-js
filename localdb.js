@@ -1,5 +1,5 @@
 /*
-	localDb v0.5 - jQuery localStorage plugin
+	localDb v0.6 - jQuery localStorage plugin
 */
 (function ($) {
 	$.extend({
@@ -44,7 +44,6 @@
 
 				localStorage[tableKey] = response;
 				updateTableVersion(tableKey);
-				console.log('Loaded '+tableKey);
 			}
 
 			/* Gets the data via AJAX. Wrapped in a function to close over variables.
@@ -67,12 +66,14 @@
 				@callback:		function to run when loaded
 			*/
 			function checkLoaded (reqTables, callback) {
+				var tVersions = JSON.parse(localStorage.versions);
 				var loaded = true;
+
 				for (var i in reqTables) {
 					var key = reqTables[i];
-					// TODO: check table version
 					var json = localStorage[key];
-					if (!json)
+
+					if (!json || tVersions[key] != dbVersion)
 						loaded = false;
 					else if (!localDb[key])
 						localDb[key] = JSON.parse(json);
@@ -96,12 +97,12 @@
 
 					if (localStorage.versions) {
 						// check if we need to refresh the data or not
-						var tableVersions = JSON.parse(localStorage.versions);
+						var tVersions = JSON.parse(localStorage.versions);
 
 						for (var i in reqTables) {
 							var key = reqTables[i];
 							// table doesn't exist yet or outdated version
-							if (!localStorage[key] || tableVersions[key] != dbVersion)
+							if (!localStorage[key] || tVersions[key] != dbVersion)
 								loadTables.push(key);
 						}
 					}
