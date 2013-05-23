@@ -1,5 +1,5 @@
 /*
-	localDb v0.4 - jQuery localStorage plugin
+	localDb v0.5 - jQuery localStorage plugin
 */
 (function ($) {
 	$.extend({
