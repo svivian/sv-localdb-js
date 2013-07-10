@@ -12,8 +12,9 @@
 			var localDb = {};
 
 			// global localStorage object for older browsers
-			if (!localStorage)
+			if (!localStorage) {
 				localStorage = {};
+			}
 
 			/* Sets the version number of the table.
 				@tableKey:	the table
@@ -73,16 +74,22 @@
 					var key = reqTables[i];
 					var json = localStorage[key];
 
-					if (!json || tVersions[key] != dbVersion)
+					if (!json || tVersions[key] != dbVersion) {
 						loaded = false;
-					else if (!localDb[key])
+					}
+					else if (!localDb[key]) {
 						localDb[key] = JSON.parse(json);
+					}
 				}
 
-				if (loaded)
-					setTimeout(callback, 10);
-				else
-					setTimeout(function () { checkLoaded(reqTables, callback) }, 800);
+				if (loaded) {
+					setTimeout( callback, 10 );
+				}
+				else {
+					setTimeout( function() {
+						checkLoaded( reqTables, callback );
+					}, 1000 );
+				}
 			}
 
 			return {
@@ -102,8 +109,9 @@
 						for (var i in reqTables) {
 							var key = reqTables[i];
 							// table doesn't exist yet or outdated version
-							if (!localStorage[key] || tVersions[key] != dbVersion)
+							if (!localStorage[key] || tVersions[key] != dbVersion) {
 								loadTables.push(key);
+							}
 						}
 					}
 					else {
