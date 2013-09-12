@@ -1,12 +1,12 @@
 /*
-	localDb v0.6 - jQuery localStorage plugin
+	localDb v0.7 - jQuery localStorage plugin
 */
 (function ($) {
 	$.extend({
 
 		// @dbAjaxPath:		URL path to which all AJAX requests are made
-		// @dbVersion:		version of our localStorage objects to check against
-		localDb: function (dbAjaxPath, dbVersion) {
+		// @dbMinVersion:		minimum version of our localStorage objects to check against
+		localDb: function (dbAjaxPath, dbMinVersion) {
 
 			// the data from localStorage as an object
 			var localDb = {};
@@ -21,7 +21,7 @@
 			*/
 			function updateTableVersion (tableKey) {
 				var obj = JSON.parse(localStorage.versions);
-				obj[tableKey] = dbVersion;
+				obj[tableKey] = dbMinVersion;
 				localStorage.versions = JSON.stringify(obj);
 			}
 
@@ -67,14 +67,14 @@
 				@callback:		function to run when loaded
 			*/
 			function checkLoaded (reqTables, callback) {
-				var tVersions = JSON.parse(localStorage.versions);
+				var tCurrVersions = JSON.parse(localStorage.versions);
 				var loaded = true;
 
 				for (var i in reqTables) {
 					var key = reqTables[i];
 					var json = localStorage[key];
 
-					if (!json || tVersions[key] != dbVersion) {
+					if (!json || tCurrVersions[key] < dbMinVersion) {
 						loaded = false;
 					}
 					else if (!localDb[key]) {
@@ -104,12 +104,12 @@
 
 					if (localStorage.versions) {
 						// check if we need to refresh the data or not
-						var tVersions = JSON.parse(localStorage.versions);
+						var tCurrVersions = JSON.parse(localStorage.versions);
 
 						for (var i in reqTables) {
 							var key = reqTables[i];
 							// table doesn't exist yet or outdated version
-							if (!localStorage[key] || tVersions[key] != dbVersion) {
+							if (!localStorage[key] || tCurrVersions[key] < dbMinVersion) {
 								loadTables.push(key);
 							}
 						}
