@@ -1,139 +1,148 @@
-/*
-	localDb v0.7 - jQuery localStorage plugin
-*/
-(function ($) {
-	$.extend({
+// load namespace
+SV = window.SV || {};
 
-		// @dbAjaxPath:		URL path to which all AJAX requests are made
-		// @dbMinVersion:		minimum version of our localStorage objects to check against
-		localDb: function (dbAjaxPath, dbMinVersion) {
+SV.LocalDb = (function() {
 
-			// the data from localStorage as an object
-			var localDb = {};
+	let localDb = {};
+	let dbAjaxPath;
+	let dbMinVersion;
+	let erroredTables = [];
 
-			// global localStorage object for older browsers
-			if (!localStorage) {
-				localStorage = {};
+	let Constructor = function(ajaxPath, minVersion) {
+		dbAjaxPath = ajaxPath;
+		dbMinVersion = minVersion;
+
+		localDb.versions = localStorage.versions ? JSON.parse(localStorage.versions) : {};
+	};
+
+	// PRIVATE METHODS
+
+	// Fetch JSON from a URL.
+	const ajaxRequest = function(url, successFn, failFn) {
+		let request = new XMLHttpRequest();
+		request.open('GET', url);
+
+		request.onload = function() {
+			if (this.status == 200) {
+				// request was successful
+				if (typeof successFn === 'function')
+					successFn(this.response);
 			}
-
-			/* Sets the version number of the table.
-				@tableKey:	the table
-			*/
-			function updateTableVersion (tableKey) {
-				var obj = JSON.parse(localStorage.versions);
-				obj[tableKey] = dbMinVersion;
-				localStorage.versions = JSON.stringify(obj);
+			else {
+				// some kind of server error
+				failFn();
 			}
+		};
 
-			/* Check response from server and save to localStorage
-				@response:	the JSON output
-				@tableKey:	table in which to save the data
-			*/
-			function saveResponse (response, tableKey) {
-				var db = {};
-				try {
-					db = JSON.parse(response);
-				}
-				catch (e) {
-					// bad response from server
-					$.error('Server response was not JSON');
-					return false;
-				}
+		request.onerror = failFn;
 
-				// save the parsed version of the JSON to avoid doing it again later
-				localDb[tableKey] = db;
+		request.send();
+	}
 
-				localStorage[tableKey] = response;
-				updateTableVersion(tableKey);
+	// Set the version number of the table.
+	const updateTableVersion = function(tableKey) {
+		localDb.versions[tableKey] = dbMinVersion;
+		localStorage.versions = JSON.stringify(localDb.versions);
+	};
+
+	// Get version of table, or 0 if it doesn't yet exist.
+	const getTableVersion = function(tableKey) {
+		return localDb.versions[tableKey] || 0;
+	};
+
+	// Check response from server and save to localStorage.
+	const saveResponse = function(response, tableKey) {
+		let tableObj = {};
+		try {
+			tableObj = JSON.parse(response);
+		}
+		catch (e) {
+			// bad response from server
+			throw 'Server response was not JSON';
+		}
+
+		// save the parsed version of the JSON to memory, to avoid doing it again later
+		localDb[tableKey] = tableObj;
+
+		localStorage[tableKey] = response;
+		updateTableVersion(tableKey);
+	};
+
+	// Gets the data via AJAX. Wrapped in a function to close over variables.
+	const fetchData = function(tableKey) {
+		let url = dbAjaxPath + tableKey;
+		let successFn = function(response) {
+			saveResponse(response, tableKey);
+		};
+		let failFn = function() {
+			erroredTables.push(tableKey);
+			throw 'Error fetching data from server ' + url;
+		};
+
+		ajaxRequest(url, successFn, failFn);
+	};
+
+	// Check if all tables are loaded yet and runs callback when they are.
+	const checkLoaded = function(reqTables, callback) {
+		let allLoaded = true;
+
+		for (let tableKey of reqTables) {
+			let json = localStorage[tableKey];
+
+			if (erroredTables.includes(tableKey))
+				continue;
+
+			if (!json || getTableVersion(tableKey) < dbMinVersion) {
+				allLoaded = false;
+			} else if (!localDb[tableKey]) {
+				localDb[tableKey] = JSON.parse(json);
 			}
+		}
 
-			/* Gets the data via AJAX. Wrapped in a function to close over variables.
-				@tableKey:	table in which to save the data
-			*/
-			function fetchData (tableKey) {
-				$.ajax({
-					url: dbAjaxPath + tableKey,
-					success: function (response) {
-						saveResponse(response, tableKey);
-					},
-					error: function () {
-						$.error('Error fetching data from server');
-					}
-				});
+		if (allLoaded) {
+			setTimeout(callback, 10);
+		} else {
+			setTimeout(function() {
+				checkLoaded(reqTables, callback);
+			}, 500);
+		}
+	};
+
+
+	// PUBLIC METHODS
+
+	// Fetch data for tables if required and load into memory.
+	Constructor.prototype.load = function(reqTables, callback) {
+		// list of tables we need to load via AJAX
+		let loadTables = [];
+
+		for (let tableKey of reqTables) {
+			// check if we need to refresh the data
+			if (!localStorage.hasOwnProperty(tableKey) || getTableVersion(tableKey) < dbMinVersion) {
+				loadTables.push(tableKey);
 			}
+		}
 
-			/* Check if all tables are loaded yet and runs callback when they are.
-				@reqTables:		array of required tables
-				@callback:		function to run when loaded
-			*/
-			function checkLoaded (reqTables, callback) {
-				var tCurrVersions = JSON.parse(localStorage.versions);
-				var loaded = true;
+		for (let tableKey of loadTables) {
+			fetchData(tableKey);
+		}
 
-				for (var i in reqTables) {
-					var key = reqTables[i];
-					var json = localStorage[key];
+		checkLoaded(reqTables, callback);
+	};
 
-					if (!json || tCurrVersions[key] < dbMinVersion) {
-						loaded = false;
-					}
-					else if (!localDb[key]) {
-						localDb[key] = JSON.parse(json);
-					}
-				}
+	// Get JSON object for a table.
+	Constructor.prototype.table = function(tableKey) {
+		return localDb[tableKey];
+	};
 
-				if (loaded) {
-					setTimeout( callback, 10 );
-				}
-				else {
-					setTimeout( function() {
-						checkLoaded( reqTables, callback );
-					}, 1000 );
-				}
-			}
+	// Check if there was an error loading table(s).
+	Constructor.prototype.hasError = function(tableKey) {
+		if (tableKey)
+			return erroredTables.includes(tableKey);
 
-			return {
+		return erroredTables.length > 0;
+	};
 
-				/* Fetch all data from localStorage and/or AJAX.
-					@reqTables:		array of required tables
-					@callback:		function to run when loaded
-				*/
-				load: function (reqTables, callback) {
-					// list of tables we need to load via AJAX
-					var loadTables = [];
+	return Constructor;
 
-					if (localStorage.versions) {
-						// check if we need to refresh the data or not
-						var tCurrVersions = JSON.parse(localStorage.versions);
-
-						for (var i in reqTables) {
-							var key = reqTables[i];
-							// table doesn't exist yet or outdated version
-							if (!localStorage[key] || tCurrVersions[key] < dbMinVersion) {
-								loadTables.push(key);
-							}
-						}
-					}
-					else {
-						// no versions stored, so fetch everything
-						localStorage.versions = '{}';
-						loadTables = reqTables;
-					}
-
-					for (var i in loadTables) {
-						fetchData(loadTables[i]);
-					}
-
-					checkLoaded(reqTables, callback);
-				},
-
-				table: function (tableKey) {
-					return localDb[tableKey];
-				}
-
-			}; // end public return
-
-		} // end localDb function
-
-	});
-})(jQuery);
+})();
