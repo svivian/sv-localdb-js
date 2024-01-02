@@ -1,5 +1,5 @@
 
-sv-localdb-js
+SV-LocalDb
 =================================================
 
 **sv-localdb-js** is a vanilla JavaScript library for managing database-like data in localStorage.
